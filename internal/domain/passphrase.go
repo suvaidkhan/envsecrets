@@ -11,7 +11,7 @@ type PassphraseService struct {
 
 func NewPassphraseService(envVar string) *PassphraseService {
 	if envVar == "" {
-		envVar = "LOCKIFY_PASSPHRASE"
+		envVar = "ENVSECRET_PASSPHRASE"
 	}
 	return &PassphraseService{envVar}
 }
