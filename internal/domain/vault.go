@@ -50,6 +50,18 @@ func WithPath(path string) Option {
 	}
 }
 
+// Creates a new vault
+func Create(env string) (*Vault, error) {
+	exists, err := checkIfExists(env)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check vault existence: %w", err)
+	}
+
+	if exists {
+		return nil, fmt.Errorf("vault %s already exists", env)
+	}
+}
+
 // Load loads and decrypts a vault from disk
 func Load(env string, passphrase string) (*Vault, error) {
 	path := VaultPath(env)
@@ -156,4 +168,19 @@ func encrypt(data []byte, passphrase string) ([]byte, error) {
 func decrypt(data []byte, passphrase string) ([]byte, error) {
 	// Your AES-256-GCM + Argon2id implementation
 	return nil, nil
+}
+
+// check if secrets repo exists
+func checkIfExists(env string) (bool, error) {
+	if env == "" {
+		return false, fmt.Errorf("environment cannot be empty")
+	}
+
+	vaultPath := VaultPath(env)
+	_, err := os.Stat(vaultPath)
+	if err != nil {
+		return false, nil
+	}
+
+	return true, nil
 }
