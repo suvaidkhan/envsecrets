@@ -1,173 +1,141 @@
 package domain
 
 import (
-	"encoding/json"
+	"crypto/rand"
+	"encoding/base64"
+	"errors"
 	"fmt"
+	"github.com/zalando/go-keyring"
+	"golang.org/x/crypto/bcrypt"
+	"io"
 	"os"
 	"path/filepath"
+	"time"
 )
 
-type Vault struct {
+type Entry struct {
+	Value     string `json:"value"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+}
+
+type Meta struct {
 	Env         string `json:"env"`
 	Salt        string `json:"salt"`
-	Fingerprint string `json:"fingerprint"`
-	Entries     map[string]string
-	path        string
-	passphrase  string
+	FingerPrint string `json:"fingerprint"`
 }
 
-type Option func(*Vault)
-
-func New(env string, opts ...Option) *Vault {
-	v := &Vault{
-		Env:     env,
-		Entries: make(map[string]string),
-	}
-	for _, opt := range opts {
-		opt(v)
-	}
-	return v
+type Vault struct {
+	Meta       Meta             `json:"meta"`
+	Entries    map[string]Entry `json:"entries"`
+	path       string
+	passphrase string
 }
 
-// WithSalt sets the salt for the vault
-func WithSalt(salt string) Option {
-	return func(v *Vault) {
-		v.Salt = salt
+func NewVault(env, fingerprint, salt string) (*Vault, error) {
+	if env == "" {
+		return nil, errors.New("environment cannot be empty")
 	}
+	if fingerprint == "" {
+		return nil, errors.New("fingerprint cannot be empty")
+	}
+	if salt == "" {
+		return nil, errors.New("salt cannot be empty")
+	}
+
+	vault := &Vault{
+		Meta: Meta{
+			Env:         env,
+			Salt:        salt,
+			FingerPrint: fingerprint,
+		},
+		Entries: make(map[string]Entry),
+	}
+
+	return vault, nil
 }
 
-// WithFingerprint sets the fingerprint
-func WithFingerprint(fp string) Option {
-	return func(v *Vault) {
-		v.Fingerprint = fp
-	}
-}
-
-// WithPath sets the file path
-func WithPath(path string) Option {
-	return func(v *Vault) {
-		v.path = path
-	}
-}
-
-// Creates a new vault
+// Create new vault
 func Create(env string) (*Vault, error) {
 	exists, err := checkIfExists(env)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check vault existence: %w", err)
 	}
-
 	if exists {
 		return nil, fmt.Errorf("vault %s already exists", env)
 	}
+
+	passPhrase := NewPassphrase("")
+	pass, err := passPhrase.Get(env)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get passphrase: %w", err)
+	}
+
+	fingerprint, err := BCryptHash(pass)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash passphrase: %w", err)
+	}
+	salt, err := GenerateSalt()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate salt: %w", err)
+	}
+	vault, err := NewVault(env, fingerprint, salt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create vault: %w", err)
+	}
+
+	return vault, nil
 }
 
-// Load loads and decrypts a vault from disk
-func Load(env string, passphrase string) (*Vault, error) {
-	path := VaultPath(env)
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read vault: %w", err)
-	}
-
-	// Decrypt the data
-	decrypted, err := decrypt(data, passphrase)
-	if err != nil {
-		return nil, fmt.Errorf("decrypt vault: %w", err)
-	}
-
-	// Unmarshal
-	var v Vault
-	if err := json.Unmarshal(decrypted, &v); err != nil {
-		return nil, fmt.Errorf("unmarshal vault: %w", err)
-	}
-
-	// Set runtime fields
-	v.path = path
-	v.passphrase = passphrase
-
-	return &v, nil
-}
-
-func (v *Vault) Add(key, value string) error {
+func (v *Vault) SetEntry(key, encryptedValue string) error {
 	if key == "" {
-		return fmt.Errorf("key cannot be empty")
+		return errors.New("key cannot be empty")
+	}
+	if encryptedValue == "" {
+		return errors.New("encrypted value cannot be empty")
 	}
 
-	v.Entries[key] = value
+	now := time.Now().UTC().Format(time.RFC3339)
+	entry, exists := v.Entries[key]
+
+	if exists {
+		entry.Value = encryptedValue
+		entry.UpdatedAt = now
+	} else {
+		entry = Entry{
+			Value:     encryptedValue,
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+	}
+
+	if v.Entries == nil {
+		v.Entries = make(map[string]Entry)
+	}
+	v.Entries[key] = entry
 	return nil
 }
 
-// Get retrieves a plaintext value by key
-func (v *Vault) Get(key string) (string, bool) {
-	value, ok := v.Entries[key]
-	return value, ok
-}
-
-// Delete removes an entry
-func (v *Vault) Delete(key string) error {
-	if _, exists := v.Entries[key]; !exists {
-		return fmt.Errorf("key %q not found", key)
-	}
-	delete(v.Entries, key)
-	return nil
-}
-
-// Keys returns all keys in sorted order
-func (v *Vault) Keys() []string {
-	keys := make([]string, 0, len(v.Entries))
-	for k := range v.Entries {
-		keys = append(keys, k)
-	}
-	return keys
-}
-
-// Save encrypts and saves the vault to disk
-func (v *Vault) Save() error {
-	if v.path == "" {
-		v.path = VaultPath(v.Env)
-	}
-
-	// Ensure directory exists
-	if err := os.MkdirAll(filepath.Dir(v.path), 0700); err != nil {
-		return fmt.Errorf("create vault directory: %w", err)
-	}
-
-	// Marshal to JSON
-	data, err := json.MarshalIndent(v, "", "  ")
+func BCryptHash(passphrase string) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(passphrase), bcrypt.DefaultCost)
 	if err != nil {
-		return fmt.Errorf("marshal vault: %w", err)
+		return "", fmt.Errorf("failed to generate hash: %w", err)
 	}
+	return string(hash), nil
+}
 
-	// Encrypt
-	encrypted, err := encrypt(data, v.passphrase)
-	if err != nil {
-		return fmt.Errorf("encrypt vault: %w", err)
+func GenerateSalt() (string, error) {
+	n := 16
+	salt := make([]byte, n)
+	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
+		return "", err
 	}
-
-	// Write to file
-	if err := os.WriteFile(v.path, encrypted, 0600); err != nil {
-		return fmt.Errorf("write vault: %w", err)
-	}
-
-	return nil
+	return base64.StdEncoding.EncodeToString(salt), nil
 }
 
 // VaultPath returns the default path for a vault
 func VaultPath(env string) string {
-	return filepath.Join(".envsecrts", fmt.Sprintf("%s.vault", env))
-}
-
-// Helper functions (would be in crypto.go)
-func encrypt(data []byte, passphrase string) ([]byte, error) {
-	// Your AES-256-GCM + Argon2id implementation
-	return nil, nil
-}
-
-func decrypt(data []byte, passphrase string) ([]byte, error) {
-	// Your AES-256-GCM + Argon2id implementation
-	return nil, nil
+	return filepath.Join(".envsecrets", fmt.Sprintf("%s.vault", env))
 }
 
 // check if secrets repo exists
