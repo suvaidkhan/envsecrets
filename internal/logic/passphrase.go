@@ -26,8 +26,8 @@ func (s *Passphrase) Get(env string) (string, error) {
 		return passphrase, nil
 	}
 
-	keyring := fmt.Sprintf("env:%s", env)
-	passphrase, err := Get(keyring)
+	ring := fmt.Sprintf("env:%s", env)
+	passphrase, err := Get(ring)
 	if err == nil && passphrase != "" {
 		return passphrase, nil
 	}
