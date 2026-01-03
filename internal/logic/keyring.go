@@ -1,4 +1,4 @@
-package domain
+package logic
 
 import (
 	"github.com/zalando/go-keyring"

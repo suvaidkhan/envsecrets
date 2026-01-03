@@ -1,4 +1,4 @@
-package domain
+package logic
 
 import (
 	"crypto/rand"
@@ -57,7 +57,7 @@ func NewVault(env, fingerprint, salt string) (*Vault, error) {
 
 // Create new vault
 func Create(env string) (*Vault, error) {
-	exists, err := checkIfExists(env)
+	exists, err := CheckIfExists(env)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check vault existence: %w", err)
 	}
@@ -139,7 +139,7 @@ func VaultPath(env string) string {
 }
 
 // check if secrets repo exists
-func checkIfExists(env string) (bool, error) {
+func CheckIfExists(env string) (bool, error) {
 	if env == "" {
 		return false, fmt.Errorf("environment cannot be empty")
 	}
