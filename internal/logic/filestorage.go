@@ -39,6 +39,37 @@ func CreateVault(vault *Vault) error {
 	return nil
 }
 
+func LoadVault(env string) (*Vault, error) {
+	if env == "" {
+		return nil, fmt.Errorf("environment cannot be empty")
+	}
+
+	path := createPath(env)
+	data, err := readFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("vault not found for environment %q: %w", env, err)
+		}
+		return nil, fmt.Errorf("failed to read vault file: %w", err)
+	}
+	var vault Vault
+	if err := json.Unmarshal(data, &vault); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal vault: %w", err)
+	}
+	vault.path = path
+
+	if vault.Meta.Env != env {
+		return nil, fmt.Errorf(
+			"vault environment mismatch: expected %q, got %q",
+			env,
+			vault.Meta.Env,
+		)
+	}
+
+	return &vault, nil
+
+}
+
 func createPath(env string) string {
 	return env + ".vault.enc"
 }
@@ -49,4 +80,8 @@ func mkDir(path string) error {
 
 func write(path string, data []byte) error {
 	return os.WriteFile(path, data, os.FileMode(DefaultFileMode))
+}
+
+func readFile(path string) ([]byte, error) {
+	return os.ReadFile(path)
 }

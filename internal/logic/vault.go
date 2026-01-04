@@ -1,13 +1,8 @@
 package logic
 
 import (
-	"crypto/rand"
-	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/zalando/go-keyring"
-	"golang.org/x/crypto/bcrypt"
-	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -87,6 +82,28 @@ func Create(env string) (*Vault, error) {
 	return vault, nil
 }
 
+func OpenVault(env string) (*Vault, error) {
+	if exists, err := CheckIfExists(env); err != nil || !exists {
+		return nil, fmt.Errorf("env %s does not exist", env)
+	}
+	passPhrase := NewPassphrase("")
+	pass, err := passPhrase.Get(env)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve passphrase: %w", err)
+	}
+	vault, err := LoadVault(env)
+	if err != nil || vault == nil {
+		return nil, fmt.Errorf("failed to load vault: %w", err)
+	}
+	err = Verify(vault.Meta.FingerPrint, pass)
+	if err != nil {
+		Clear(env)
+		return nil, fmt.Errorf("invalid credentials: %w", err)
+	}
+	vault.passphrase = pass
+	return vault, err
+}
+
 func (v *Vault) SetEntry(key, encryptedValue string) error {
 	if key == "" {
 		return errors.New("key cannot be empty")
@@ -114,23 +131,6 @@ func (v *Vault) SetEntry(key, encryptedValue string) error {
 	}
 	v.Entries[key] = entry
 	return nil
-}
-
-func BCryptHash(passphrase string) (string, error) {
-	hash, err := bcrypt.GenerateFromPassword([]byte(passphrase), bcrypt.DefaultCost)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate hash: %w", err)
-	}
-	return string(hash), nil
-}
-
-func GenerateSalt() (string, error) {
-	n := 16
-	salt := make([]byte, n)
-	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
-		return "", err
-	}
-	return base64.StdEncoding.EncodeToString(salt), nil
 }
 
 // VaultPath returns the default path for a vault
