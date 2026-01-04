@@ -78,6 +78,10 @@ func Create(env string) (*Vault, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create vault: %w", err)
 	}
+	err = CreateVault(vault)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create vault: %w", err)
+	}
 
 	return vault, nil
 }
