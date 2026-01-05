@@ -12,3 +12,7 @@ func Get(key string) (string, error) {
 func Clear(env string) {
 
 }
+
+func Set(key, value string) error {
+	return keyring.Set("envsecrets", key, value)
+}

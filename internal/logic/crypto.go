@@ -13,11 +13,11 @@ import (
 )
 
 const (
-	DefaultArgonTime     uint32 = 3
-	DefaultArgonMemoryKB uint32 = 64
-	DefaultArgonThreads  uint8  = 4
-	DefaultKeyLength     uint32 = 32
-	DefaultNonceSize     int    = 12
+	DefaultArgonTime    uint32 = 3
+	DefaultArgonMemory  uint32 = 64 * 1024
+	DefaultArgonThreads uint8  = 4
+	DefaultKeyLength    uint32 = 32
+	DefaultNonceSize    int    = 12
 )
 
 func BCryptHash(passphrase string) (string, error) {
@@ -166,7 +166,7 @@ func deriveKey(passphrase, salt []byte) []byte {
 		passphrase,
 		salt,
 		DefaultArgonTime,
-		DefaultArgonMemoryKB,
+		DefaultArgonMemory,
 		DefaultArgonThreads,
 		DefaultKeyLength,
 	)

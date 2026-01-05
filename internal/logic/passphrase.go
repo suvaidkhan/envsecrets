@@ -2,9 +2,9 @@ package logic
 
 import (
 	"fmt"
-	"github.com/AlecAivazis/survey/v2"
-	"github.com/zalando/go-keyring"
 	"os"
+
+	"github.com/AlecAivazis/survey/v2"
 )
 
 type Passphrase struct {
@@ -46,6 +46,13 @@ func (s *Passphrase) getFromUser(env string) (string, error) {
 	if passphrase == "" {
 		return "", fmt.Errorf("passphrase cannot be empty")
 	}
-	//TODO keyring cache logic
+
+	// Cache to keyring for future use
+	ring := fmt.Sprintf("env:%s", env)
+	if err := Set(ring, passphrase); err != nil {
+		// Non-fatal: just warn if keyring is unavailable
+		fmt.Fprintf(os.Stderr, "Warning: failed to cache passphrase to keyring: %v\n", err)
+	}
+
 	return passphrase, nil
 }

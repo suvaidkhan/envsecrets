@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 const DefaultDirMode = 0o700
@@ -14,18 +15,21 @@ func CreateVault(vault *Vault) error {
 		return fmt.Errorf("vault cannot be nil")
 	}
 
-	vault.path = createPath(vault.Meta.Env)
-	if err := mkDir(vault.path); err != nil {
-		return fmt.Errorf("failed to create vault directory: %w", err)
+	// Create .envsecrets directory first
+	if err := os.MkdirAll(".envsecrets", os.FileMode(DefaultDirMode)); err != nil {
+		return fmt.Errorf("failed to create .envsecrets directory: %w", err)
 	}
 
-	exists, err := CheckIfExists(vault.path)
+	// Check if vault exists using env name (not path)
+	exists, err := CheckIfExists(vault.Meta.Env)
 	if err != nil {
-		return fmt.Errorf("failed to check if path exists: %w", err)
+		return fmt.Errorf("failed to check if vault exists: %w", err)
 	}
 	if exists {
 		return fmt.Errorf("vault already exists for environment %q", vault.Meta.Env)
 	}
+
+	vault.path = createPath(vault.Meta.Env)
 
 	data, err := json.MarshalIndent(vault, "", "  ")
 	if err != nil {
@@ -33,7 +37,7 @@ func CreateVault(vault *Vault) error {
 	}
 
 	if err := write(vault.path, data); err != nil {
-		return fmt.Errorf("failed to write to vault: %w", err)
+		return fmt.Errorf("failed to write vault: %w", err)
 	}
 
 	return nil
@@ -71,11 +75,7 @@ func LoadVault(env string) (*Vault, error) {
 }
 
 func createPath(env string) string {
-	return env + ".vault.enc"
-}
-
-func mkDir(path string) error {
-	return os.MkdirAll(path, os.FileMode(DefaultDirMode))
+	return filepath.Join(".envsecrets", fmt.Sprintf("%s.vault", env))
 }
 
 func write(path string, data []byte) error {
