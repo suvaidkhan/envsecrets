@@ -50,6 +50,11 @@ func NewVault(env, fingerprint, salt string) (*Vault, error) {
 	return vault, nil
 }
 
+// Passphrase returns the vault's passphrase
+func (v *Vault) Passphrase() string {
+	return v.passphrase
+}
+
 // Create new vault
 func Create(env string) (*Vault, error) {
 	exists, err := CheckIfExists(env)

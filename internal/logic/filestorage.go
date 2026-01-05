@@ -71,7 +71,26 @@ func LoadVault(env string) (*Vault, error) {
 	}
 
 	return &vault, nil
+}
 
+func SaveVault(vault *Vault) error {
+	if vault == nil {
+		return fmt.Errorf("vault cannot be nil")
+	}
+	if vault.path == "" {
+		return fmt.Errorf("vault path is not set")
+	}
+
+	data, err := json.MarshalIndent(vault, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal vault: %w", err)
+	}
+
+	if err := write(vault.path, data); err != nil {
+		return fmt.Errorf("failed to write vault: %w", err)
+	}
+
+	return nil
 }
 
 func createPath(env string) string {
