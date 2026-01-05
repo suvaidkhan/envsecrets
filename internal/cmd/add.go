@@ -33,7 +33,7 @@ func init() {
 	rootCmd.AddCommand(addCmd)
 }
 
-func runAdd(cmd *cobra.Command, args []string) error {
+func runAdd(*cobra.Command, []string) error {
 	// Get key and value (from flags or prompt)
 	key := addKeyFlag
 	value := addValueFlag

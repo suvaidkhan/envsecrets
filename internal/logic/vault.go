@@ -142,6 +142,18 @@ func (v *Vault) SetEntry(key, encryptedValue string) error {
 	return nil
 }
 
+func (v *Vault) DeleteEntry(key string) error {
+	if key == "" {
+		return errors.New("key cannot be empty")
+	}
+
+	if v.Entries == nil || v.Entries[key].Value == "" {
+		return errors.New("entry is empty")
+	}
+	delete(v.Entries, key)
+	return nil
+}
+
 // VaultPath returns the default path for a vault
 func VaultPath(env string) string {
 	return filepath.Join(".envsecrets", fmt.Sprintf("%s.vault", env))
