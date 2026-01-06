@@ -113,6 +113,14 @@ func OpenVault(env string) (*Vault, error) {
 	return vault, err
 }
 
+func (v *Vault) GetEntry(key string) (Entry, error) {
+	value, ok := v.Entries[key]
+	if !ok {
+		return Entry{}, fmt.Errorf("key %s not found in vault", key)
+	}
+	return value, nil
+}
+
 func (v *Vault) SetEntry(key, encryptedValue string) error {
 	if key == "" {
 		return errors.New("key cannot be empty")
