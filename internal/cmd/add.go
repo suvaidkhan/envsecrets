@@ -5,7 +5,7 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/cobra"
-	"github.com/suvaidkhan/envsecret/internal/logic"
+	"github.com/suvaidkhan/envsecrets/internal/logic"
 )
 
 var addCmd = &cobra.Command{

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/suvaidkhan/envsecret/internal/logic"
+	"github.com/suvaidkhan/envsecrets/internal/logic"
 )
 
 var clearCmd = &cobra.Command{

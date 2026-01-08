@@ -1,6 +1,6 @@
-module github.com/suvaidkhan/envsecret
+module github.com/suvaidkhan/envsecrets
 
-go 1.24.7
+go 1.22
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7

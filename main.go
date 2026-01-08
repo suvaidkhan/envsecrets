@@ -1,6 +1,6 @@
 package main
 
-import "github.com/suvaidkhan/envsecret/internal/cmd"
+import "github.com/suvaidkhan/envsecrets/internal/cmd"
 
 func main() {
 	err := cmd.Execute()
