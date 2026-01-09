@@ -6,8 +6,41 @@ envsecrets encrypts your environment variables using AES-GCM encryption with Arg
 
 ## Installation
 
+### Prerequisites
+
+- Go 1.22 or higher
+
+### Install from GitHub
+
 ```bash
+go install github.com/suvaidkhan/envsecrets@latest
+```
+
+This will download, build, and install the `envsecrets` binary to your `$GOPATH/bin` directory.
+
+Make sure `$GOPATH/bin` is in your PATH:
+```bash
+export PATH=$PATH:$(go env GOPATH)/bin
+```
+
+### Build from Source
+
+```bash
+# Clone the repository
+git clone https://github.com/suvaidkhan/envsecrets.git
+cd envsecrets
+
+# Build the binary
 go build -o envsecrets
+
+# Optionally, move to a directory in your PATH
+sudo mv envsecrets /usr/local/bin/
+```
+
+### Verify Installation
+
+```bash
+envsecrets --version
 ```
 
 ## Commands
