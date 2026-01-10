@@ -4,6 +4,18 @@ A lightweight CLI tool for securely managing environment variables and secrets.
 
 envsecrets encrypts your environment variables using AES-GCM encryption with Argon2 key derivation. Your secrets are protected with a passphrase that can be stored securely in your system's keyring.
 
+## Why envsecrets?
+
+**Version control your secrets safely.** Unlike traditional approaches where `.env` files must be kept out of version control, envsecrets encrypts your secrets so they can be safely committed to your repository. This means:
+
+- **Track secret changes over time** - See when secrets were added, modified, or removed through git history
+- **Collaborate securely** - Share encrypted secrets with your team through version control
+- **Environment parity** - Keep development, staging, and production secrets in the same repo
+- **Disaster recovery** - Your encrypted secrets are backed up wherever your code is
+- **Simplify deployment** - No need for separate secret management infrastructure
+
+The `.envsecrets/*.vault` files are encrypted and safe to commit. Only those with the passphrase can decrypt them.
+
 ## Installation
 
 ### Prerequisites
@@ -44,6 +56,22 @@ envsecrets --version
 ```
 
 ## Commands
+
+### Quick Reference
+
+| Command | Description |
+|---------|-------------|
+| `init` | Initialize a new encrypted vault |
+| `add` | Add or update a secret in a vault |
+| `get` | Retrieve a specific secret |
+| `delete` | Remove a secret from a vault |
+| `export` | Export all secrets to dotenv or JSON |
+| `import` | Import secrets from dotenv or JSON file |
+| `rotate` | Change vault passphrase |
+| `clear` | Clear cached passphrase from keyring |
+| `destroy` | Permanently delete a vault |
+
+---
 
 ### init - Initialize a new vault
 
@@ -114,6 +142,148 @@ envsecrets rotate --env prod
 
 ---
 
+### get - Retrieve a secret
+
+Get a decrypted secret from a vault and print it to stdout.
+
+```bash
+envsecrets get --env prod --key API_KEY
+```
+
+**Flags:**
+- `--env, -e` - Environment name (required)
+- `--key, -k` - Secret key to retrieve (required)
+
+**What it does:**
+- Opens the vault with passphrase
+- Retrieves and decrypts the specified secret
+- Prints the value to stdout
+
+**Use case:** Scripts, CI/CD pipelines, or exporting a single secret.
+
+---
+
+### delete - Delete a secret
+
+Remove a secret from a vault.
+
+```bash
+# Delete with flags
+envsecrets delete --env prod --key API_KEY
+
+# Interactive mode
+envsecrets delete --env prod
+```
+
+**Flags:**
+- `--env, -e` - Environment name (required)
+- `--key, -k` - Secret key to delete (prompts if not provided)
+
+**What it does:**
+- Opens the vault with passphrase
+- Removes the specified entry
+- Updates the vault file
+
+---
+
+### export - Export all secrets
+
+Export all decrypted secrets from a vault in dotenv or JSON format.
+
+```bash
+# Export as dotenv format
+envsecrets export --env prod > .env
+
+# Export as JSON
+envsecrets export --env staging --format json > env.json
+```
+
+**Flags:**
+- `--env, -e` - Environment name (required)
+- `--format` - Output format: `dotenv` or `json` (default: dotenv)
+
+**What it does:**
+- Opens the vault with passphrase
+- Decrypts all entries
+- Outputs to stdout in the specified format
+
+**Use case:** Generate `.env` files for local development or deployment.
+
+---
+
+### import - Import secrets from file
+
+Import secrets from a dotenv or JSON file into a vault.
+
+```bash
+# Import from dotenv file
+envsecrets import .env --env prod --format dotenv
+
+# Import from JSON file
+envsecrets import config.json --env staging --format json
+
+# Import from stdin
+cat .env | envsecrets import --env local --format dotenv
+
+# Overwrite existing keys
+envsecrets import .env --env prod --format dotenv --overwrite
+```
+
+**Flags:**
+- `--env, -e` - Environment name (required)
+- `--format` - Input format: `dotenv` or `json` (required)
+- `--overwrite` - Overwrite existing keys (default: false)
+
+**What it does:**
+- Parses the input file (dotenv or JSON format)
+- Opens the vault with passphrase
+- Encrypts and adds entries to the vault
+- Skips existing keys unless `--overwrite` is used
+
+**Use case:** Migrate existing `.env` files to encrypted storage.
+
+---
+
+### clear - Clear cached passphrase
+
+Remove the cached passphrase for an environment from the system keyring.
+
+```bash
+envsecrets clear --env prod
+```
+
+**Flags:**
+- `--env, -e` - Environment name (required)
+
+**What it does:**
+- Removes the cached passphrase from system keyring
+- Next command will prompt for passphrase again
+
+**Use case:** Security best practice, logout, or switching users.
+
+---
+
+### destroy - Destroy a vault
+
+Permanently delete a vault and all its secrets.
+
+```bash
+envsecrets destroy --env prod
+```
+
+**Flags:**
+- `--env, -e` - Environment name (required)
+
+**What it does:**
+- Clears cached passphrase
+- Prompts for passphrase to verify authorization
+- Asks for confirmation
+- Permanently deletes the vault file
+
+**Warning:** This action cannot be undone. All secrets will be lost unless backed up.
+
+---
+
 ## Passphrase Management
 
 Passphrases are retrieved in this order:
@@ -156,6 +326,8 @@ Vaults are stored in `.envsecrets/{env}.vault`:
 
 ## Examples
 
+### Basic Workflow
+
 ```bash
 # Create a production vault
 envsecrets init --env production
@@ -164,8 +336,46 @@ envsecrets init --env production
 envsecrets add --env production --key DATABASE_URL --value "postgres://..."
 envsecrets add --env production --key API_KEY --value "sk-..." --secret
 
+# Retrieve a secret
+envsecrets get --env production --key API_KEY
+
+# Delete a secret
+envsecrets delete --env production --key OLD_KEY
+```
+
+### Migration from .env Files
+
+```bash
+# Import existing .env file
+envsecrets init --env development
+envsecrets import .env --env development --format dotenv
+
+# Commit the encrypted vault
+git add .envsecrets/development.vault
+git commit -m "Add encrypted development secrets"
+```
+
+### Exporting Secrets
+
+```bash
+# Generate .env file for local development
+envsecrets export --env development > .env
+
+# Export as JSON for configuration
+envsecrets export --env production --format json > config.json
+```
+
+### Security Maintenance
+
+```bash
 # Rotate passphrase periodically
 envsecrets rotate --env production
+
+# Clear cached passphrase when done
+envsecrets clear --env production
+
+# Destroy a vault (DANGEROUS)
+envsecrets destroy --env old-env
 ```
 
 ## CI/CD Usage
@@ -173,6 +383,18 @@ envsecrets rotate --env production
 Set the `ENVSECRET_PASSPHRASE` environment variable in your CI/CD pipeline:
 
 ```bash
+# Set passphrase in CI environment
 export ENVSECRET_PASSPHRASE="your-passphrase"
-envsecrets add --env prod --key KEY --value value
+
+# Export secrets to .env for your application
+envsecrets export --env prod > .env
+
+# Or retrieve individual secrets
+API_KEY=$(envsecrets get --env prod --key API_KEY)
+DATABASE_URL=$(envsecrets get --env prod --key DATABASE_URL)
 ```
+
+**Best practices:**
+- Store the passphrase as a secret in your CI/CD platform (GitHub Secrets, GitLab CI Variables, etc.)
+- Use different passphrases for each environment
+- The encrypted `.envsecrets/*.vault` files can be safely committed to your repository
